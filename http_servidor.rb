@@ -18,7 +18,9 @@ class HTTPServer
 
     loop do                  #espera continuamente
       client = server.accept #bloqueia aqui ate um cliente conectar
-      handle_request(client) #processa a requisicao
+      Thread.new do
+        handle_request(client) #processa a requisicao
+      end
     end
   end
 
@@ -27,6 +29,8 @@ class HTTPServer
   def handle_request(client)
     request_line = client.gets.chomp #le a requisicao
     method, path, _ = request_line.split(" ") #separa em metodo, caminho e dont care
+
+    puts "#{path} - #{Time.now}"
 
     if @waf.request_maliciosa?(path)
       status = "400 Bad Request"
@@ -49,6 +53,8 @@ class HTTPServer
     end
 
     send_response(client, status, body)
+
+    puts "#{path} - #{Time.now}"
   end
 
   def send_response(client, status, body)
