@@ -14,7 +14,7 @@ class WAF
     /on\w+\s*=/i,                 # xss — event handlers (onclick=, onload=, etc)
   ]
 
-  def request_maliciosa?(path)
+  def malicious_request?(path)
     decode = URI.decode_www_form_component(path)
     ATTACKING_PATTERNS.any? { |pattern| decode.match?(pattern) } #retorna true se algum padrao de ataque for identificado
   end

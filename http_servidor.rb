@@ -27,34 +27,41 @@ class HTTPServer
   private 
 
   def handle_request(client)
-    request_line = client.gets.chomp #le a requisicao
-    method, path, _ = request_line.split(" ") #separa em metodo, caminho e dont care
+    begin #envolve todo o metodo para evitar excecao por desconexao abrupta
+      request_line = client.gets.chomp #le a requisicao
+      method, path, _ = request_line.split(" ") #separa em metodo, caminho e dont care
 
-    puts "#{path} - #{Time.now}"
+      ip = client.peeraddr[3] #adquire o ip do cliente no array de informacoes peeraddr
 
-    if @waf.request_maliciosa?(path)
-      status = "400 Bad Request"
-      body = "<h1>400 - Bad Request</h1>"
+      if @waf.malicious_request?(path)
+        status = "400 Bad Request"
+        body = "<h1>400 - Bad Request</h1>"
+        send_response(client, status, body)
+        log(ip, method, path, status)
+        return
+      end
+
+      while !(line = client.gets.chomp).empty?
+      end
+
+      handler = @routes["#{method} #{path}"]
+
+      if handler
+        body = handler.call #executa o bloco e captura o retorno
+        status = "200 OK"
+      else
+        body = "<h1>404 - Not Found</h1>"
+        status = "404 Not Found"
+      end
+
       send_response(client, status, body)
-      return
+
+      log(ip, method, path, status)
+    rescue => e
+      puts "ERROR: #{e.message}"
+    ensure
+      client.close rescue nil #sempre fecha a conexao com o cliente, ainda que tenha erro
     end
-
-    while !(line = client.gets.chomp).empty?
-    end
-
-    handler = @routes["#{method} #{path}"]
-
-    if handler
-      body = handler.call #executa o bloco e captura o retorno
-      status = "200 OK"
-    else
-      body = "<h1>404 - Not Found</h1>"
-      status = "404 Not Found"
-    end
-
-    send_response(client, status, body)
-
-    puts "#{path} - #{Time.now}"
   end
 
   def send_response(client, status, body)
@@ -67,6 +74,10 @@ class HTTPServer
 
     client.print(response)
     client.close
+  end
+
+  def log(ip, method, path, status)
+    puts "#{ip} - #{method} #{path} #{status} - #{Time.now}"
   end
 end
 
